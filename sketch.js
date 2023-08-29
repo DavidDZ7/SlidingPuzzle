@@ -7,8 +7,9 @@ August 2023
 
 backgroundColor='#444444';
 cellColor="#aaaaaa"
-rows=3;
-cols=3;
+cellColors=["#f95929","#f9d300","#00cd00","#26c0ff"]
+rows=4;
+cols=4;
 grid=[];
 emptyCell=[rows-1,cols-1]//initialize position of empty cell
 
@@ -22,9 +23,6 @@ function setup() {
 function draw() {
   background(backgroundColor);
   //Show grid:
-  //for (const currentCell of grid) {
-  //  if (currentCell.empty==false){currentCell.show();}
-  //}
   for (let row=0;row<rows;row++){
     for(let col=0;col<cols;col++){      
       if (grid[row][col].empty==false){grid[row][col].show();}
@@ -44,11 +42,18 @@ function createGrid(rows,cols){
   let cellHeight=windowHeight/rows;
   
   totalgrid=rows*cols;
-  numsSequence=generateRandomSequence(totalgrid-1);
+
+  // Generate a sequence of numbers from 1 to n:
+  let numsSequence = [];
+  for (let i = 1; i <= totalgrid-1; i++) {
+    numsSequence.push(i);
+  }
   console.log("Nums sequence: ",numsSequence)
-  let numIndex=0;
+  // Start with a solved grid:
+  let numIndex=0;  
   for (let row=0;row<rows;row++){
     gridRow = [];
+    let colorIndex=0;
     for (let col=0;col<cols;col++){      
       if (numIndex==totalgrid-1){//leave last cell empty
         empty=true;
@@ -58,47 +63,62 @@ function createGrid(rows,cols){
         empty=false;
         num=numsSequence[numIndex];
       }
-      gridRow.push(new cell(row,col,cellWidth,cellHeight,num,empty));
+      cellColor=cellColors[colorIndex];
+      gridRow.push(new cell(row,col,cellWidth,cellHeight,num,empty,cellColor));
       numIndex+=1;
+      colorIndex++;
+      if (colorIndex>=cellColors.length){colorIndex=0}
     }
     grid.push(gridRow);
   }
-  
-}
-
-function generateRandomSequence(n) {
-  let sequence = [];
-
-  // Generate a sequence of numbers from 1 to n
-  for (let i = 1; i <= n; i++) {
-    sequence.push(i);
+  // Shuffle the grid with random legal moves:
+  totalLegalMoves = totalgrid * 10
+  for (let i = 0; i < totalLegalMoves; i++) {    
+    let legalMoves = findLegalMoves(emptyCell[0], emptyCell[1]);    
+    let randomMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];    
+    swapCells(emptyCell, randomMove);    
   }
 
-  // Shuffle the sequence using the Fisher-Yates algorithm
-  for (let i = sequence.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [sequence[i], sequence[j]] = [sequence[j], sequence[i]]; // Swap elements
-  }
-
-  return sequence;
 }
+
+function findLegalMoves(row,col){
+  let moves=[[row,col-1],[row,col+1],[row+1,col],[row-1,col]]
+  let legalMoves=[]
+  for (const move_i of moves) {
+    if (move_i[0]>=0 && move_i[0]<rows && move_i[1]>=0 && move_i[1]<cols){
+      legalMoves.push(move_i)
+    }
+  }
+  return legalMoves
+}
+
+function swapCells(emptyCell,otherCell){
+  //emptyCell & otherCell are in format [row,col]
+  //update empty cell and swap with other cell:
+  grid[emptyCell[0]][emptyCell[1]].empty=false;
+  grid[emptyCell[0]][emptyCell[1]].num=grid[otherCell[0]][otherCell[1]].num;
+  grid[emptyCell[0]][emptyCell[1]].color=grid[otherCell[0]][otherCell[1]].color;
+
+  grid[otherCell[0]][otherCell[1]].empty=true;
+  grid[otherCell[0]][otherCell[1]].num=null;
+
+  // Update the emptyCell array to reflect the new position
+  emptyCell[0] = otherCell[0];
+  emptyCell[1] = otherCell[1];
+
+}
+
 
 function mouseClicked(){
-  position=identifyMouseInGrid(mouseX,mouseY)
+  let position=identifyMouseInGrid(mouseX,mouseY)
   console.log("grid[position]:",position)
   //if (position!=null){ console.log(grid[position[0]][position[1]])}
   
   //check if the user clicked on a cell that allows a valid movement (distance to empty cell must me strictly 1)
   if (position!=null && position!=emptyCell && ( (Math.abs(position[0]-emptyCell[0]) + Math.abs(position[1]-emptyCell[1])) == 1 )){
-    console.log("valid movement")
+    console.log("valid movement");
     //update empty cell and swap with clicked cell:
-    grid[emptyCell[0]][emptyCell[1]].empty=false;
-    grid[emptyCell[0]][emptyCell[1]].num=grid[position[0]][position[1]].num;
-
-    grid[position[0]][position[1]].empty=true;
-    grid[position[0]][position[1]].num=null;
-
-    emptyCell=position
+    swapCells(emptyCell,position);
   }
 }
 
@@ -127,18 +147,19 @@ function checkWin(){
 
 
 function ShowWin(){
-  let winText="YOU WON!";
-  strokeWeight(0);
-  textSize(cells[0][0].height/2);
+  let winText="COMPLETED!";
+  strokeWeight(8);
+  stroke("#dddddd")
+  textSize(grid[0][0].height/2);
   let textWidth_ = textWidth(winText);
   let textHeight_ = textAscent(winText) + textDescent(winText);
   //display text at the center of window
   fill(20);
-  text(winText,x=windowWidth/2-textWidth_/2,y=windowHeight/2-textHeight_/2);
+  text(winText,x=windowWidth/2-textWidth_/2,y=windowHeight/2+textHeight_/4);
 }
 
 class cell{
-  constructor(row,col,cellWidth,cellHeight,num,empty){
+  constructor(row,col,cellWidth,cellHeight,num,empty,cellColor){
     this.empty=empty;//boolean to check of cell is empty
     this.num=num;
     this.row=row;
@@ -148,10 +169,11 @@ class cell{
     this.y=row*this.height+this.height/2;
     this.x=col*this.width+this.width/2;
     this.radius=10;
+    this.color=cellColor;
   }
 
   show(){
-    fill(cellColor)
+    fill(this.color)
     strokeWeight(3);
     stroke(backgroundColor)
     rectMode(CENTER);
